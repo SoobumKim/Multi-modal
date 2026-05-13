@@ -1,0 +1,35 @@
+module test (
+    input  wire clk,
+    input  wire rst_n,
+    input  wire spi_clock,
+    input  wire spi_cs_n,
+    input  wire spi_mosi,
+    output wire [7:0] debug_out
+);
+
+    wire [27:0] register_freq0;
+    wire [27:0] register_freq1;
+    wire [11:0] register_phase0;
+    wire [11:0] register_phase1;
+    wire [1:0]  register_mode;
+    wire [7:0]  register_gain;
+    wire [7:0]  register_offset;
+
+    spi_slave_interface u_spi (
+        .clk(clk),
+        .rst_n(rst_n),
+        .spi_clock(spi_clock),
+        .spi_cs_n(spi_cs_n),
+        .spi_mosi(spi_mosi),
+        .register_freq0(register_freq0),
+        .register_freq1(register_freq1),
+        .register_phase0(register_phase0),
+        .register_phase1(register_phase1),
+        .register_mode(register_mode),
+        .register_gain(register_gain),
+        .register_offset(register_offset)
+    );
+
+    assign debug_out = register_gain;
+
+endmodule
