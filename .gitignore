@@ -9,5 +9,9 @@ fpga/incremental_db/
 fpga/output_files/
 fpga/simulation/
 
+# .v 파일만 추적 허용
+!fpga/*.v
+!fpga/**/*.v
+
 # backup files
-fpga/*.bak
+*.bak
