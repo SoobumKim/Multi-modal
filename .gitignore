@@ -1,8 +1,8 @@
-.vscode
-.pio
+.vscode/
+.pio/
 
 db
 output_files
 incremental_db
-simulation
+**/simulation/
 *.bak
