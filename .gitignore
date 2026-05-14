@@ -1,8 +1,12 @@
-.vscode/
-.pio/
+# ESP32 generated/config folders
+esp32/.pio/
+esp32/.vscode/
 
-db
-output_files
-incremental_db
-**/simulation/
+# FPGA generated folders
+fpga/db/
+fpga/incremental_db/
+fpga/output_files/
+fpga/simulation/
+
+# backup files
 *.bak

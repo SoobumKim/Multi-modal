@@ -1,7 +1,0 @@
-<?xml version="1.0" ?>
-<LOG_ROOT>
-	<PROJECT NAME="test">
-		<CBX_INST_ENTRY INSTANCE_NAME="|dds_top|dds:inst_dds|altsyncram:sine_memory_rtl_0" CBX_FILE_NAME="altsyncram_jnn1.tdf"/>
-		<CBX_INST_ENTRY INSTANCE_NAME="|dds_top|dds:inst_dds|lpm_mult:Mult0" CBX_FILE_NAME="mult_aat.tdf"/>
-	</PROJECT>
-</LOG_ROOT>
