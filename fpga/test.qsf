@@ -157,6 +157,9 @@ set_location_assignment PIN_B16 -to v2
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_location_assignment PIN_A8 -to fselect
+set_location_assignment PIN_B8 -to pselect
+set_global_assignment -name VERILOG_FILE mcp4922_spi_master.v
 set_global_assignment -name VERILOG_FILE dds_top.v
 set_global_assignment -name VERILOG_FILE tt_um_tinydds.v
 set_global_assignment -name VERILOG_FILE sync_async_reset.v
@@ -164,14 +167,12 @@ set_global_assignment -name VERILOG_FILE synchronizer.v
 set_global_assignment -name VERILOG_FILE spi_slave_interface.v
 set_global_assignment -name VERILOG_FILE prng.v
 set_global_assignment -name VERILOG_FILE dds.v
-set_location_assignment PIN_A8 -to fselect
-set_location_assignment PIN_B8 -to pselect
-set_location_assignment PIN_B6 -to dds_output[0]
-set_location_assignment PIN_A5 -to dds_output[1]
-set_location_assignment PIN_B5 -to dds_output[2]
-set_location_assignment PIN_A4 -to dds_output[3]
-set_location_assignment PIN_A2 -to dds_output[7]
-set_location_assignment PIN_B3 -to dds_output[6]
-set_location_assignment PIN_A3 -to dds_output[5]
-set_location_assignment PIN_B4 -to dds_output[4]
+set_location_assignment PIN_A2 -to dds_outA[7]
+set_location_assignment PIN_B3 -to dds_outA[6]
+set_location_assignment PIN_A3 -to dds_outA[5]
+set_location_assignment PIN_B4 -to dds_outA[4]
+set_location_assignment PIN_A4 -to dds_outA[3]
+set_location_assignment PIN_B5 -to dds_outA[2]
+set_location_assignment PIN_A5 -to dds_outA[1]
+set_location_assignment PIN_B6 -to dds_outA[0]
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

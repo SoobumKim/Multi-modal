@@ -10,14 +10,6 @@
 		</pin>
 		<pin name="asio_din[3]" source="Pin Planner" >
 		</pin>
-		<pin name="debug_pin" source="Pin Planner" >
-		</pin>
-		<pin name="debug_pin1" source="Pin Planner" >
-		</pin>
-		<pin name="debug_pin2" source="Pin Planner" >
-		</pin>
-		<pin name="debug_pin3" source="Pin Planner" >
-		</pin>
 		<pin name="asio_din[6]" source="Pin Planner" >
 		</pin>
 		<pin name="test4" source="Pin Planner" >

@@ -11,11 +11,14 @@ static constexpr int PIN_SPI_CS   = 10;
 static constexpr int PIN_SPI_MOSI = 11;
 static constexpr int PIN_SPI_SCK  = 12;
 
+static constexpr uint8_t FPGA_GAIN_MAX = 0xFF;
 static constexpr uint32_t FPGA_CLK_HZ = 1024000;
 
-static float step = 10.0f;   // 10Hz씩 변경
-static float f = 4000.0f;   // 10Hz씩 변경
+static float step     = 10.0f;   // 10Hz씩 변경
+static float freq0_hz = 4000.0f; 
 
+static int mode = 0;
+static int sub_mode = 0;
 SPIClass spi(FSPI);
 
 void fpgaWrite32(uint32_t data)
@@ -52,8 +55,81 @@ void fpgaReset()
     delay(10);
 }
 
-uint32_t ftw_fix = calcFTW(50.0f);  // test p1
-uint32_t ftw = calcFTW(f);  // 4 kHz 사인파
+enum FpgaMainMode {
+    FPGA_MODE_ICT       = 0,
+    FPGA_MODE_EST       = 1,
+    FPGA_MODE_SCRAMBLER = 2,
+};
+
+enum ICTMode {
+    ICT_IF = 0,
+    ICT_LF = 1,
+};
+
+enum EstWaveform {
+    EST_SQUARE    = 0,
+    EST_HALF_SINE = 1,
+    EST_TRIANGLE  = 2,
+};
+
+void fpgaSetControl(uint8_t main_mode, uint8_t sub_mode, bool output_enable)
+{
+    uint32_t data = 0;
+
+    data |= (main_mode & 0x0F);
+    data |= ((sub_mode & 0x0F) << 4);
+
+    if (output_enable) {
+        data |= (1UL << 8);
+    }
+
+    fpgaWriteReg(0x0, data);
+}
+
+void fpgaSetICTMode(uint8_t ict_mode,
+                    float freq0_hz,
+                    float freq1_hz,
+                    uint8_t gain)
+{
+    uint32_t ftw0 = calcFTW(freq0_hz);
+    uint32_t ftw1 = calcFTW(freq1_hz);
+
+    fpgaWriteReg(0x1, ftw0);   // 4 kHz
+    fpgaWriteReg(0x2, ftw1);   // 4~4.2 kHz
+    fpgaWriteReg(0x5, gain);
+
+    fpgaSetControl(FPGA_MODE_ICT, ict_mode, true);
+}
+
+void fpgaSetEstMode(uint8_t est_waveform, float freq_hz, uint8_t gain)
+{
+    uint32_t ftw = calcFTW(freq_hz);
+
+    fpgaWriteReg(0x1, ftw);
+    fpgaWriteReg(0x5, gain);
+
+    fpgaSetControl(FPGA_MODE_EST, est_waveform, true);
+}
+
+void fpgaSetScrambler(uint8_t waveform_id,
+                      float freq_hz,
+                      uint8_t pause_id,
+                      uint8_t packet_duration,
+                      uint8_t gain)
+{
+    uint32_t ftw = calcFTW(freq_hz);
+
+    uint32_t scr_ctrl = 0;
+    scr_ctrl |= (waveform_id & 0x0F);          // S00~S15
+    scr_ctrl |= ((pause_id & 0x03) << 6);      // pause 0~3
+    scr_ctrl |= ((packet_duration & 0xFF) << 8);
+
+    fpgaWriteReg(0x1, ftw);
+    fpgaWriteReg(0x5, gain);
+    fpgaWriteReg(0x8, scr_ctrl);
+
+    fpgaSetControl(FPGA_MODE_SCRAMBLER, waveform_id, true);
+}
 
 void setup()
 {
@@ -87,11 +163,11 @@ void setup()
 
     fpgaReset();
 
-    // 1) mode = 0 → 사인파 출력
-    fpgaWriteReg(0x0, 0x00);
+    // // 1) mode = 0 → 사인파 출력
+    // fpgaWriteReg(0x0, 0x00);
 
     // 2) gain = 0xFF → 최대 진폭
-    fpgaWriteReg(0x5, 0xFF);
+    fpgaWriteReg(0x5, FPGA_GAIN_MAX);
 
     // 3) offset = 0x00 → DC offset 없음 (signed 0)
     fpgaWriteReg(0x6, 0x00);
@@ -99,26 +175,35 @@ void setup()
     // 4) phase0 = 0 → 위상 오프셋 없음
     fpgaWriteReg(0x3, 0x000);
 
-    // 5) freq0: 원하는 출력 주파수 설정
-    fpgaWriteReg(0x1, ftw_fix);
+    // // 5) freq0: 원하는 출력 주파수 설정
+    // fpgaWriteReg(0x1, ftw_fix);
 }
 
 void loop()
 {
-    fpgaWriteReg(0x1, ftw_fix);
-    // ftw = calcFTW(f);  
-    // fpgaWriteReg(0x2, ftw);
+    // ICT IF 모드 테스트 (4kHz + 4.2kHz 각각 출력)
+    fpgaSetICTMode(ICT_IF, 4000.0, 4200.0, FPGA_GAIN_MAX);
+    delay(3000);
 
-    // f += step;
+    // ICT LF 모드 테스트 (합성파)
+    fpgaSetICTMode(ICT_LF, 4000.0, 4200.0, FPGA_GAIN_MAX);
+    delay(3000);
 
-    // if (f >= 5000.0f) {
-    //     f = 5000.0f;
-    //     step = -step;
-    // }
-    // else if (f <= 4200.0f) {
-    //     f = 4200.0f;
-    //     step = -step;
-    // }
+    // EST SQUARE 테스트
+    fpgaSetEstMode(EST_SQUARE, 4000.0, FPGA_GAIN_MAX);
+    delay(3000);
 
-    // delay(100);   // 0.1초마다 주파수 변경
+    // EST HALF_SINE 테스트
+    fpgaSetEstMode(EST_HALF_SINE, 4000.0, FPGA_GAIN_MAX);
+    delay(3000);
+
+    // EST HALF_SINE 테스트
+    fpgaSetEstMode(EST_TRIANGLE, 4000.0, FPGA_GAIN_MAX);
+    delay(3000);
+
+    for (int i = 0; i < 16; i++) {
+        fpgaSetScrambler(i, 4000.0, 0, 0, FPGA_GAIN_MAX);
+        delay(3000);
+    }
+
 }
