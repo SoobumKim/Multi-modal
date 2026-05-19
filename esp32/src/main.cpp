@@ -185,7 +185,7 @@ void loop()
     delay(3000);
 
     for (int i = 0; i < 16; i++) {
-        fpgaSetScrambler(i, 4000.0, 0, 0, FPGA_GAIN_MAX);
+        fpgaSetScrambler(i, 4000.0, FPGA_GAIN_MAX);
         delay(3000);
     }
 
