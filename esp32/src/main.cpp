@@ -19,16 +19,22 @@ SPIClass spi(FSPI);
 
 void fpgaWrite32(uint32_t data)
 {
-    spi.beginTransaction(SPISettings(100000, MSBFIRST, SPI_MODE0));  // 100kHz로 낮추기
+    spi.beginTransaction(SPISettings(100000, MSBFIRST, SPI_MODE0));
+
     digitalWrite(PIN_SPI_CS, LOW);
+    delayMicroseconds(1);
 
     spi.transfer((data >> 24) & 0xFF);
     spi.transfer((data >> 16) & 0xFF);
     spi.transfer((data >>  8) & 0xFF);
     spi.transfer((data >>  0) & 0xFF);
 
-    spi.endTransaction();
+    delayMicroseconds(1);
     digitalWrite(PIN_SPI_CS, HIGH);
+
+    spi.endTransaction();
+
+    delayMicroseconds(5);
 }
 
 uint32_t calcFTW(float freq_hz) {
@@ -135,6 +141,7 @@ void setup()
     uint64_t freq_var = (uint64_t)FPGA_SYS_HZ * 100ULL;
     si5351_set_frequencies(0, freq_var);
     si5351_enable_outputs_and_phase();
+    delay(20);  // Si5351 PLL 락 대기
 
     pinMode(PIN_FPGA_RST, OUTPUT);
     pinMode(PIN_SPI_CS, OUTPUT);
@@ -160,29 +167,31 @@ void setup()
 
     // // 5) freq0: 원하는 출력 주파수 설정
     // fpgaWriteReg(0x1, ftw_fix);
+
+    Serial.println("Fixed sine test start");
 }
 
 void loop()
 {
     // ICT IF 모드 테스트 (4kHz + 4.2kHz 각각 출력)
-    fpgaSetICTMode(ICT_IF, 4000.0, 4200.0, FPGA_GAIN_MAX);
-    delay(3000);
+    // fpgaSetICTMode(ICT_IF, 4000.0, 4200.0, FPGA_GAIN_MAX);
+    // delay(3000);
 
-    // ICT LF 모드 테스트 (합성파)
-    fpgaSetICTMode(ICT_LF, 4000.0, 4200.0, FPGA_GAIN_MAX);
-    delay(3000);
+    // // ICT LF 모드 테스트 (합성파)
+    // fpgaSetICTMode(ICT_LF, 4000.0, 4200.0, FPGA_GAIN_MAX);
+    // delay(3000);
 
-    // EST SQUARE 테스트
-    fpgaSetEstMode(EST_SQUARE, 4000.0, FPGA_GAIN_MAX);
-    delay(3000);
+    // // EST SQUARE 테스트
+    // fpgaSetEstMode(EST_SQUARE, 4000.0, FPGA_GAIN_MAX);
+    // delay(3000);
 
-    // EST HALF_SINE 테스트
-    fpgaSetEstMode(EST_HALF_SINE, 4000.0, FPGA_GAIN_MAX);
-    delay(3000);
+    // // EST HALF_SINE 테스트
+    // fpgaSetEstMode(EST_HALF_SINE, 4000.0, FPGA_GAIN_MAX);
+    // delay(3000);
 
-    // EST HALF_SINE 테스트
-    fpgaSetEstMode(EST_TRIANGLE, 4000.0, FPGA_GAIN_MAX);
-    delay(3000);
+    // // EST TRIANGLE 테스트
+    // fpgaSetEstMode(EST_TRIANGLE, 4000.0, FPGA_GAIN_MAX);
+    // delay(3000);
 
     for (int i = 0; i < 16; i++) {
         fpgaSetScrambler(i, 4000.0, FPGA_GAIN_MAX);
