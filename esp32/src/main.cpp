@@ -14,11 +14,6 @@ static constexpr int PIN_SPI_SCK  = 12;
 static constexpr uint8_t FPGA_GAIN_MAX = 0xFF;
 static constexpr uint32_t FPGA_CLK_HZ = 1024000;
 
-static float step     = 10.0f;   // 10Hz씩 변경
-static float freq0_hz = 4000.0f; 
-
-static int mode = 0;
-static int sub_mode = 0;
 SPIClass spi(FSPI);
 
 void fpgaWrite32(uint32_t data)
@@ -111,23 +106,10 @@ void fpgaSetEstMode(uint8_t est_waveform, float freq_hz, uint8_t gain)
     fpgaSetControl(FPGA_MODE_EST, est_waveform, true);
 }
 
-void fpgaSetScrambler(uint8_t waveform_id,
-                      float freq_hz,
-                      uint8_t pause_id,
-                      uint8_t packet_duration,
-                      uint8_t gain)
+void fpgaSetScrambler(uint8_t waveform_id, float freq_hz, uint8_t gain)
 {
-    uint32_t ftw = calcFTW(freq_hz);
-
-    uint32_t scr_ctrl = 0;
-    scr_ctrl |= (waveform_id & 0x0F);          // S00~S15
-    scr_ctrl |= ((pause_id & 0x03) << 6);      // pause 0~3
-    scr_ctrl |= ((packet_duration & 0xFF) << 8);
-
-    fpgaWriteReg(0x1, ftw);
+    fpgaWriteReg(0x1, calcFTW(freq_hz));
     fpgaWriteReg(0x5, gain);
-    fpgaWriteReg(0x8, scr_ctrl);
-
     fpgaSetControl(FPGA_MODE_SCRAMBLER, waveform_id, true);
 }
 

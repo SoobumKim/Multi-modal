@@ -143,6 +143,7 @@ module dds (
             4'd15: pain_data <= pain_mem15[lut_addr0];
         endcase
     end
+
     // -------------------------------------------------------------------------
     // Gain & Offset
     // -------------------------------------------------------------------------
@@ -155,12 +156,13 @@ module dds (
         reg signed  [17:0] post_gain;
         reg signed  [7:0]  result;
         begin
-            s_in           = $signed(din);               // signed LUT이므로 그대로
-            post_gain      = s_in * $signed({1'b0, gain}); // gain은 양수 보장
+            s_in           = $signed(din);
+            post_gain      = s_in * $signed({1'b0, gain});
             result         = post_gain[15:8];
-            process_sample = 8'hFF - ($unsigned(result) + 8'h80);  // 비트 반전
+            process_sample = 8'hFF - ($unsigned(result) + 8'h80);
         end
     endfunction
+
     // -------------------------------------------------------------------------
     // 출력 선택
     // -------------------------------------------------------------------------
