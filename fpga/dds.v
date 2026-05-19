@@ -4,6 +4,7 @@
 module dds (
     input  wire        clk,
     input  wire        rst_n,
+    input  wire        clk_en,    // 1.024 MHz 클럭 인에이블 (시스템 클럭 16.384 MHz ÷ 16)
 
     input  wire [27:0] register_freq0,
     input  wire [27:0] register_freq1,
@@ -29,7 +30,7 @@ module dds (
         if (!rst_n) begin
             phase_acc0 <= 0;
             phase_acc1 <= 0;
-        end else begin
+        end else if (clk_en) begin
             phase_acc0 <= phase_acc0 + register_freq0;
             phase_acc1 <= phase_acc1 + register_freq1;
         end
@@ -51,8 +52,10 @@ module dds (
     reg [7:0] sine_data1;
 
     always @(posedge clk) begin
-        sine_data0 <= sine_memory[lut_addr0];
-        sine_data1 <= sine_memory[lut_addr1];
+        if (clk_en) begin
+            sine_data0 <= sine_memory[lut_addr0];
+            sine_data1 <= sine_memory[lut_addr1];
+        end
     end
 
     wire [8:0] sine_sum   = {1'b0, sine_data0} + {1'b0, sine_data1};
@@ -74,12 +77,14 @@ module dds (
     reg [7:0] est_data;
 
     always @(posedge clk) begin
-        case (register_sub_mode[1:0])
-            2'd0: est_data <= est_mem0[lut_addr0];
-            2'd1: est_data <= est_mem1[lut_addr0];
-            2'd2: est_data <= est_mem2[lut_addr0];
-            default: est_data <= 8'h80;
-        endcase
+        if (clk_en) begin
+            case (register_sub_mode[1:0])
+                2'd0: est_data <= est_mem0[lut_addr0];
+                2'd1: est_data <= est_mem1[lut_addr0];
+                2'd2: est_data <= est_mem2[lut_addr0];
+                default: est_data <= 8'h80;
+            endcase
+        end
     end
 
     // -------------------------------------------------------------------------
@@ -124,24 +129,26 @@ module dds (
     reg [7:0] pain_data;
 
     always @(posedge clk) begin
-        case (register_sub_mode)
-            4'd0:  pain_data <= pain_mem0[lut_addr0];
-            4'd1:  pain_data <= pain_mem1[lut_addr0];
-            4'd2:  pain_data <= pain_mem2[lut_addr0];
-            4'd3:  pain_data <= pain_mem3[lut_addr0];
-            4'd4:  pain_data <= pain_mem4[lut_addr0];
-            4'd5:  pain_data <= pain_mem5[lut_addr0];
-            4'd6:  pain_data <= pain_mem6[lut_addr0];
-            4'd7:  pain_data <= pain_mem7[lut_addr0];
-            4'd8:  pain_data <= pain_mem8[lut_addr0];
-            4'd9:  pain_data <= pain_mem9[lut_addr0];
-            4'd10: pain_data <= pain_mem10[lut_addr0];
-            4'd11: pain_data <= pain_mem11[lut_addr0];
-            4'd12: pain_data <= pain_mem12[lut_addr0];
-            4'd13: pain_data <= pain_mem13[lut_addr0];
-            4'd14: pain_data <= pain_mem14[lut_addr0];
-            4'd15: pain_data <= pain_mem15[lut_addr0];
-        endcase
+        if (clk_en) begin
+            case (register_sub_mode)
+                4'd0:  pain_data <= pain_mem0[lut_addr0];
+                4'd1:  pain_data <= pain_mem1[lut_addr0];
+                4'd2:  pain_data <= pain_mem2[lut_addr0];
+                4'd3:  pain_data <= pain_mem3[lut_addr0];
+                4'd4:  pain_data <= pain_mem4[lut_addr0];
+                4'd5:  pain_data <= pain_mem5[lut_addr0];
+                4'd6:  pain_data <= pain_mem6[lut_addr0];
+                4'd7:  pain_data <= pain_mem7[lut_addr0];
+                4'd8:  pain_data <= pain_mem8[lut_addr0];
+                4'd9:  pain_data <= pain_mem9[lut_addr0];
+                4'd10: pain_data <= pain_mem10[lut_addr0];
+                4'd11: pain_data <= pain_mem11[lut_addr0];
+                4'd12: pain_data <= pain_mem12[lut_addr0];
+                4'd13: pain_data <= pain_mem13[lut_addr0];
+                4'd14: pain_data <= pain_mem14[lut_addr0];
+                4'd15: pain_data <= pain_mem15[lut_addr0];
+            endcase
+        end
     end
 
     // -------------------------------------------------------------------------
@@ -178,7 +185,7 @@ module dds (
             dds_outA <= 8'h80;
             dds_outB <= 8'h80;
         end
-        else begin
+        else if (clk_en) begin
             case (register_main_mode)
 
                 MAIN_ICT: begin

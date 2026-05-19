@@ -2,9 +2,19 @@
 // MCP4922 Dual 12-bit DAC SPI Master
 //
 // 동작 순서:
-//   채널A 16비트 전송 → CS HIGH → 채널B 16비트 전송 → CS HIGH → LDAC 펄스
+//   LOAD_A → 16 × (SCK_LOW → SCK_HIGH) → TRAIL → CS_HIGH
+//   → LOAD_B → 16 × (SCK_LOW → SCK_HIGH) → TRAIL → CS_HIGH
+//   → LDAC(2 cycle) → IDLE
 //
-// SPI 클럭 = 시스템 클럭 / 2 = 512kHz (1.024MHz 기준)
+// 시스템 클럭 16.384 MHz 기준:
+//   SPI 클럭 = 8.192 MHz (SCK_LOW 1 cycle + SCK_HIGH 1 cycle)
+//   DAC 업데이트 레이트 ≈ 227 kHz
+//
+// MCP4922 타이밍 충족 (1 cycle = 61 ns):
+//   t_CSS (CS→SCK 셋업) : LOAD + SCK_LOW = 2 cycle = 122 ns  > 50 ns ✓
+//   t_CSH (SCK→CS 홀드) : TRAIL          = 1 cycle =  61 ns  > 50 ns ✓
+//   t_CSW (CS HIGH 폭)  : CS_HIGH         = 1 cycle =  61 ns  > 50 ns ✓
+//   t_LDAC (LDAC 폭)    : LDAC + LDAC2   = 2 cycle = 122 ns  > 100 ns ✓
 //
 // MCP4922 패킷 구조 (16비트):
 //   [15]   A/B  : 0=채널A, 1=채널B
@@ -18,15 +28,14 @@
 module mcp4922_spi_master (
     input  wire        clk,
     input  wire        rst_n,
-    input  wire [11:0] dac_a,      // 채널A 12비트 데이터
-    input  wire [11:0] dac_b,      // 채널B 12비트 데이터
+    input  wire [11:0] dac_a,
+    input  wire [11:0] dac_b,
     output reg         spi_clk,
     output reg         spi_cs_n,
     output reg         spi_mosi,
-    output reg         spi_ldac_n  // LOW 펄스 → 두 채널 동시 업데이트
+    output reg         spi_ldac_n
 );
 
-    // 패킷 생성: [ch][BUF=0][GA=1][SHDN=1][D11:D0]
     function [15:0] make_packet;
         input        ch;
         input [11:0] data;
@@ -35,17 +44,19 @@ module mcp4922_spi_master (
         end
     endfunction
 
-    localparam IDLE     = 3'd0;
-    localparam LOAD     = 3'd1;
-    localparam TRANSFER = 3'd2;
-    localparam CS_HIGH  = 3'd3;
-    localparam LDAC     = 3'd4;
+    localparam IDLE     = 4'd0;
+    localparam LOAD     = 4'd1;
+    localparam SCK_LOW  = 4'd2;  // MOSI 세팅, SCK=0
+    localparam SCK_HIGH = 4'd3;  // SCK=1 → MCP4922 rising edge 샘플링
+    localparam TRAIL    = 4'd4;  // 마지막 비트 클럭 후 SCK=0 (t_CSH 확보)
+    localparam CS_HIGH  = 4'd5;  // CS=1 → 데이터 latch
+    localparam LDAC     = 4'd6;  // LDAC LOW (1번째 사이클)
+    localparam LDAC2    = 4'd7;  // LDAC LOW (2번째 사이클, 122 ns 확보)
 
-    reg [2:0]  state;
+    reg [3:0]  state;
     reg [15:0] shift_reg;
-    reg [3:0]  bit_cnt;     // 15 → 0
-    reg        ch_sel;      // 0=채널A, 1=채널B
-    reg        clk_div;     // 시스템클럭 /2 → SPI 512kHz
+    reg [3:0]  bit_cnt;   // 15 → 0
+    reg        ch_sel;    // 0=채널A, 1=채널B
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -57,69 +68,72 @@ module mcp4922_spi_master (
             shift_reg  <= 0;
             bit_cnt    <= 0;
             ch_sel     <= 0;
-            clk_div    <= 0;
         end
         else begin
-            clk_div <= ~clk_div;
-
             case (state)
 
-                // IDLE: clk_div 타이밍에 맞춰 전송 시작
                 IDLE: begin
                     spi_cs_n   <= 1;
                     spi_ldac_n <= 1;
                     spi_clk    <= 0;
-                    if (clk_div == 0) begin
-                        ch_sel <= 0;
-                        state  <= LOAD;
-                    end
+                    ch_sel     <= 0;
+                    state      <= LOAD;
                 end
 
-                // LOAD: 패킷 준비, CS LOW
+                // CS LOW + 패킷 준비
                 LOAD: begin
-                    shift_reg <= (ch_sel == 0) ? make_packet(0, dac_a)
-                                               : make_packet(1, dac_b);
-                    bit_cnt   <= 15;
+                    shift_reg <= ch_sel ? make_packet(1, dac_b)
+                                       : make_packet(0, dac_a);
+                    bit_cnt   <= 4'd15;
                     spi_cs_n  <= 0;
-                    state     <= TRANSFER;
+                    state     <= SCK_LOW;
                 end
 
-                // TRANSFER: CLK 토글하며 MSB부터 전송
-                TRANSFER: begin
-                    if (clk_div == 0) begin
-                        // 하강엣지: 다음 비트 MOSI에 출력
-                        spi_clk   <= 0;
-                        spi_mosi  <= shift_reg[15];
-                        shift_reg <= {shift_reg[14:0], 1'b0};
-                    end
-                    else begin
-                        // 상승엣지: MCP4922 샘플링
-                        spi_clk <= 1;
-                        if (bit_cnt == 0) begin
-                            spi_clk <= 0;
-                            state   <= CS_HIGH;
-                        end
-                        else begin
-                            bit_cnt <= bit_cnt - 1;
-                        end
+                // MOSI에 현재 비트 출력, SCK=0
+                SCK_LOW: begin
+                    spi_clk   <= 0;
+                    spi_mosi  <= shift_reg[15];
+                    shift_reg <= {shift_reg[14:0], 1'b0};
+                    state     <= SCK_HIGH;
+                end
+
+                // SCK=1 → MCP4922 샘플링
+                SCK_HIGH: begin
+                    spi_clk <= 1;
+                    if (bit_cnt == 0) begin
+                        state <= TRAIL;
+                    end else begin
+                        bit_cnt <= bit_cnt - 1;
+                        state   <= SCK_LOW;
                     end
                 end
 
-                // CS_HIGH: CS 올리기 → 채널A면 채널B로, 채널B면 LDAC으로
+                // 마지막 비트 전송 후 SCK=0 (t_CSH 확보)
+                TRAIL: begin
+                    spi_clk <= 0;
+                    state   <= CS_HIGH;
+                end
+
+                // CS=1 → 데이터 latch / 다음 채널 또는 LDAC으로
                 CS_HIGH: begin
                     spi_cs_n <= 1;
                     spi_mosi <= 0;
                     if (ch_sel == 0) begin
                         ch_sel <= 1;
                         state  <= LOAD;
-                    end
-                    else begin
-                        state  <= LDAC;
+                    end else begin
+                        state <= LDAC;
                     end
                 end
 
-                // LDAC: 1클럭 LOW 펄스 → VOUTA/VOUTB 동시 업데이트
+                // LDAC LOW 1번째 사이클
                 LDAC: begin
+                    spi_ldac_n <= 0;
+                    state      <= LDAC2;
+                end
+
+                // LDAC LOW 2번째 사이클 (합계 122 ns > 100 ns min)
+                LDAC2: begin
                     spi_ldac_n <= 0;
                     ch_sel     <= 0;
                     state      <= IDLE;

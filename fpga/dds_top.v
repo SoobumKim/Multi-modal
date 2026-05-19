@@ -2,7 +2,7 @@
 `default_nettype none
 
 module dds_top (
-    input  wire clk,
+    input  wire clk,       // 16.384 MHz (Si5351 CLK0)
     input  wire rst_n,
 
     // SPI Slave (ESP32 → FPGA)
@@ -22,6 +22,20 @@ module dds_top (
 );
 
     // -------------------------------------------------------------------------
+    // DDS 클럭 인에이블: 16.384 MHz ÷ 16 = 1.024 MHz 유효 샘플레이트
+    // -------------------------------------------------------------------------
+    reg [3:0] dds_ce_cnt;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            dds_ce_cnt <= 4'd0;
+        else
+            dds_ce_cnt <= dds_ce_cnt + 4'd1;
+    end
+
+    wire dds_ce = (dds_ce_cnt == 4'd15);
+
+    // -------------------------------------------------------------------------
     // Wires from SPI slave
     // -------------------------------------------------------------------------
     wire [3:0]  register_main_mode;
@@ -33,8 +47,6 @@ module dds_top (
     wire [11:0] register_phase1;
     wire [7:0]  register_gain;
     wire [7:0]  register_offset;
-    // wire [1:0]  register_pause_id;
-    // wire [7:0]  register_packet_duration;
 
     // -------------------------------------------------------------------------
     // SPI Slave
@@ -53,17 +65,16 @@ module dds_top (
         .register_phase0         (register_phase0),
         .register_phase1         (register_phase1),
         .register_gain           (register_gain),
-        .register_offset         (register_offset),
-        // .register_pause_id       (register_pause_id),
-        // .register_packet_duration(register_packet_duration)
+        .register_offset         (register_offset)
     );
 
     // -------------------------------------------------------------------------
-    // DDS
+    // DDS (유효 클럭 1.024 MHz, clk_en으로 게이팅)
     // -------------------------------------------------------------------------
     dds inst_dds (
         .clk                (clk),
         .rst_n              (rst_n),
+        .clk_en             (dds_ce),
         .register_freq0     (register_freq0),
         .register_freq1     (register_freq1),
         .register_phase0    (register_phase0),
@@ -78,7 +89,7 @@ module dds_top (
     );
 
     // -------------------------------------------------------------------------
-    // MCP4922 DAC SPI Master
+    // MCP4922 DAC SPI Master (16.384 MHz → SPI 8.192 MHz, DAC 업데이트 ~234 kHz)
     // -------------------------------------------------------------------------
     mcp4922_spi_master inst_mcp4922 (
         .clk        (clk),

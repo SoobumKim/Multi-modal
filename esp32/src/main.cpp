@@ -12,7 +12,8 @@ static constexpr int PIN_SPI_MOSI = 11;
 static constexpr int PIN_SPI_SCK  = 12;
 
 static constexpr uint8_t FPGA_GAIN_MAX = 0xFF;
-static constexpr uint32_t FPGA_CLK_HZ = 1024000;
+static constexpr uint32_t FPGA_CLK_HZ  = 1024000;   // DDS 유효 샘플레이트 (FTW 계산 기준)
+static constexpr uint32_t FPGA_SYS_HZ  = 16384000;  // FPGA 시스템 클럭 (16 × 1.024 MHz)
 
 SPIClass spi(FSPI);
 
@@ -130,8 +131,8 @@ void setup()
     }
     Serial.println("Si5351 init done");  // 여기까지 오는지 확인
 
-    // 1024 kHz
-    uint64_t freq_var = 1024000ULL * 100ULL;
+    // 16.384 MHz (16 × 1.024 MHz) — DDS clk_en ÷16 → 유효 1.024 MHz
+    uint64_t freq_var = (uint64_t)FPGA_SYS_HZ * 100ULL;
     si5351_set_frequencies(0, freq_var);
     si5351_enable_outputs_and_phase();
 
