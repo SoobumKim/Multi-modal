@@ -57,6 +57,8 @@ module mcp4922_spi_master (
     reg [15:0] shift_reg;
     reg [3:0]  bit_cnt;   // 15 → 0
     reg        ch_sel;    // 0=채널A, 1=채널B
+    reg [11:0] lat_a;     // IDLE에서 latch → A/B 동시 샘플 보장
+    reg [11:0] lat_b;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -68,6 +70,8 @@ module mcp4922_spi_master (
             shift_reg  <= 0;
             bit_cnt    <= 0;
             ch_sel     <= 0;
+            lat_a      <= 0;
+            lat_b      <= 0;
         end
         else begin
             case (state)
@@ -77,13 +81,15 @@ module mcp4922_spi_master (
                     spi_ldac_n <= 1;
                     spi_clk    <= 0;
                     ch_sel     <= 0;
+                    lat_a      <= dac_a;  // A/B 동시 캡처
+                    lat_b      <= dac_b;
                     state      <= LOAD;
                 end
 
-                // CS LOW + 패킷 준비
+                // CS LOW + 패킷 준비 (latch된 값 사용)
                 LOAD: begin
-                    shift_reg <= ch_sel ? make_packet(1, dac_b)
-                                       : make_packet(0, dac_a);
+                    shift_reg <= ch_sel ? make_packet(1, lat_b)
+                                       : make_packet(0, lat_a);
                     bit_cnt   <= 4'd15;
                     spi_cs_n  <= 0;
                     state     <= SCK_LOW;
