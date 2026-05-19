@@ -43,19 +43,25 @@ module dds (
     wire [7:0] lut_addr1 = phase_out1[11:4];
 
     // -------------------------------------------------------------------------
-    // Sine ROM (ICT)
+    // Sine ROM (ICT) - CH1/CH2 각각 독립 ROM 인스턴스 (Quartus single-port 합성 보장)
     // -------------------------------------------------------------------------
-    reg [7:0] sine_memory [0:255];
-    initial $readmemh("mems/sine.mem", sine_memory);
+    reg [7:0] sine_mem_a [0:255];
+    reg [7:0] sine_mem_b [0:255];
+
+    initial begin
+        $readmemh("mems/sine.mem", sine_mem_a);
+        $readmemh("mems/sine.mem", sine_mem_b);
+    end
 
     reg [7:0] sine_data0;
     reg [7:0] sine_data1;
 
     always @(posedge clk) begin
-        if (clk_en) begin
-            sine_data0 <= sine_memory[lut_addr0];
-            sine_data1 <= sine_memory[lut_addr1];
-        end
+        if (clk_en) sine_data0 <= sine_mem_a[lut_addr0];
+    end
+
+    always @(posedge clk) begin
+        if (clk_en) sine_data1 <= sine_mem_b[lut_addr1];
     end
 
     wire [8:0] sine_sum   = {1'b0, sine_data0} + {1'b0, sine_data1};
