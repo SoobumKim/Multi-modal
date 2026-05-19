@@ -14,11 +14,7 @@ module dds_top (
     output wire dac_sck,
     output wire dac_cs_n,
     output wire dac_mosi,
-    output wire dac_ldac_n,
-
-    // Debug pins (dds_outA[7:0])
-    output wire [7:0]  dds_outA,
-    output wire [7:0]  dds_outB
+    output wire dac_ldac_n
 );
 
     // -------------------------------------------------------------------------
@@ -71,6 +67,9 @@ module dds_top (
     // -------------------------------------------------------------------------
     // DDS (유효 클럭 1.024 MHz, clk_en으로 게이팅)
     // -------------------------------------------------------------------------
+    wire [7:0] dds_outA;
+    wire [7:0] dds_outB;
+
     dds inst_dds (
         .clk                (clk),
         .rst_n              (rst_n),
